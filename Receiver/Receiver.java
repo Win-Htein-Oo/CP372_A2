@@ -24,41 +24,44 @@ public class Receiver {
         final int RN = Integer.parseInt(args[4]);
         final int windowSize = 128; // Sender does not send window size ?
 
+        DatagramSocket socket = null;
+        FileOutputStream fileOut = null;
 
-        DatagramSocket socket = new DatagramSocket(rcvDataPort); // Start listening on rcvDataPort 
-        InetAddress senderAddress = InetAddress.getByName(sndIP);
+        try {
+            socket = new DatagramSocket(rcvDataPort); // Start listening on rcvDataPort 
+            InetAddress senderAddress = InetAddress.getByName(sndIP);
 
-        FileOutputStream fileOut = new FileOutputStream(outputFile);
+            fileOut = new FileOutputStream(outputFile);
 
-        byte[] buf = new byte[128];
-        DatagramPacket udpPacket = new DatagramPacket(buf, buf.length);
+            byte[] buf = new byte[128];
+            DatagramPacket udpPacket = new DatagramPacket(buf, buf.length);
 
-        int expectedSeq = 1;
-        int lastDelivered = 0;
-        int packets = 0; // Number of packages received
+            int expectedSeq = 1;
+            int lastDelivered = 0;
+            int packets = 0; // Number of packages received
 
-        Map<Integer, DSPacket> buffer = new HashMap<>();
+            Map<Integer, DSPacket> buffer = new HashMap<>();
 
-        System.out.println("Receiver listening on port " + rcvDataPort);
+            System.out.println("Receiver listening on port " + rcvDataPort);
 
-        while (true) {
-            socket.receive(udpPacket);
-            ++ packets;
+            while (true) {
+                socket.receive(udpPacket);
+                ++ packets;
 
-            DSPacket pkt = new DSPacket(udpPacket.getData());
+                DSPacket pkt = new DSPacket(udpPacket.getData());
 
-            int type = pkt.getType();
-            int seq = pkt.getSeqNum();
-            
+                int type = pkt.getType();
+                int seq = pkt.getSeqNum();
+                boolean dropped = ChaosEngine.shouldDrop(packets, RN);
+                
 
-            switch (type) {
-                case 0:    // Receive SOT handshake
+                if (type == 0) {    // Receive SOT handshake
                     System.out.println("Received SOT handshake");
                     DSPacket ack = new DSPacket((byte)2, 0, new byte[0]);
                     System.out.println("Send ACK 0 - SOT");
-                    sendAck(socket, senderAddress, sndAckPort, sndIP, sndAckPort, ack, ChaosEngine.shouldDrop(packets, RN));
-                    break;
-                case 1:   // Receive DATA 
+                    sendAck(socket, senderAddress, sndAckPort, sndIP, sndAckPort, ack, dropped);
+                }
+                else if (type == 1) { // Receive DATA 
                     System.out.println("Received seq#:" + seq);
                     if (seq == expectedSeq) { // In-order DATA
                         byte[] data = pkt.getPayload();
@@ -87,30 +90,45 @@ public class Receiver {
                     }
                     // Ignore (seq < expectedSeq) [duplicate]
 
-
-                    DSPacket ack1 = new DSPacket((byte)2, lastDelivered, new byte[0]);
+                    DSPacket ack = new DSPacket((byte)2, lastDelivered, new byte[0]);
                     System.out.println("Send Cummulative Ack" + lastDelivered);
-                    sendAck(socket, senderAddress, sndAckPort, sndIP, sndAckPort, ack, ChaosEngine.shouldDrop(packets, RN));
-                    break;
-                    
-                case 3:   // Receive EOT
+                    sendAck(socket, senderAddress, sndAckPort, sndIP, sndAckPort, ack, dropped);
+                }
+                else if (type == 3) {  // Receive EOT
                     System.out.println("Received EOT");
-                    DSPacket ack3 = new DSPacket((byte)2, seq, new byte[0]);
+                    DSPacket ack = new DSPacket((byte)2, seq, new byte[0]);
                     System.out.println("Send ACK 0 - EOT");
-                    sendAck(socket, senderAddress, sndAckPort, sndIP, sndAckPort, ack, ChaosEngine.shouldDrop(packets, RN));
+                    sendAck(socket, senderAddress, sndAckPort, sndIP, sndAckPort, ack, dropped);
+                    
                     break;
-                default:
-                    break;
+                }
+        
+            }
+
+            System.out.println("File transfer complete!");
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+        }   
+        finally {
+            try {
+                if (fileOut != null) {
+                    fileOut.close();
+                }
+            } 
+            catch (IOException e) {
+                e.printStackTrace();
+            }
+
+            if (socket != null) {
+                socket.close();
             }
         }
-        fileOut.close();
-        socket.close();
-
-        System.out.println("File transfer complete!");
     }
 
     // Send Ack
-    private void sendAck(DatagramSocket socket, InetAddress adr, int port, String sndIP, int sndAckPort, DSPacket pkt, boolean drop) {
+    private static void sendAck(DatagramSocket socket, InetAddress adr, int port, String sndIP, int sndAckPort, DSPacket pkt, boolean drop) 
+            throws Exception{
         if (! drop) {
             DatagramPacket sndpkt = new DatagramPacket(pkt.toBytes(), 128, adr, port);
             socket.send(sndpkt);
