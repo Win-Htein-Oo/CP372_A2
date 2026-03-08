@@ -5,7 +5,7 @@ import java.util.*;
 /**
  * CP372 A2 - DS-FTP Sender
  * Stop-and-Wait: java Sender <rcv_ip> <rcv_data_port> <sender_ack_port> <input_file> <timeout_ms>
- * Go-Back-N: java Sender <rcv_ip> <rcv_data_port> <sender_ack_port> <input_file> <timeout_ms> <window_size>
+ * Go-Back-N: java Sender <rcv_ip> <rcv_data_port> <sender_ack_port> <input_file> <timeout_ms> [window_size]
  * Uses starter DSPacket.java and ChaosEngine.java (unchanged).
  */
 public class Sender {
