@@ -254,7 +254,7 @@ public class Sender {
 
                 if (timeoutStreak >= 3) throw new CriticalFailure();
 
-                // Retransmit entire window from base in NORMAL order (safe & matches “retransmit from base”)
+                // Retransmit entire window from base in NORMAL order
                 for (int i = baseIndex; i < nextIndex && i < packets.size(); i++) {
                     DSPacket p = packets.get(i);
                     send128(sendSocket, p.toBytes(), rcvAddr, rcvDataPort);
