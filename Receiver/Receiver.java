@@ -88,6 +88,9 @@ public class Receiver {
                             }
                         }
                     }
+                    else {
+                        System.out.println("Received duplicate seq#:" + seq);
+                    }
                     // Ignore (seq < expectedSeq) [duplicate]
 
                     DSPacket ack = new DSPacket((byte)2, lastDelivered, new byte[0]);
